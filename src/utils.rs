@@ -3,20 +3,21 @@ use termion::color::{Fg, Rgb, Reset};
 
 #[derive(Clone, Copy)]
 pub struct Node {
-	shape: [char; 2],
 	col: (u8, u8, u8),
 	kind: u8,
 }
 impl Display for Node {
 	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-		write!(f, "{}{}{}{}",Fg(Rgb(self.col.0, self.col.1, self.col.2)) , self.shape[0], self.shape[1], Fg(Reset))
+		if self.kind == 0 {
+			return write!(f, "{} .{}", Fg(Rgb(self.col.0, self.col.1, self.col.2)), Fg(Reset));
+		}
+		return write!(f, "{}[]{}", Fg(Rgb(self.col.0, self.col.1, self.col.2)), Fg(Reset));
 	}
 }
 
 impl Node {
-	pub fn init(shape: [char; 2], col: (u8, u8, u8), kind: u8) -> Self {
+	pub fn init(col: (u8, u8, u8), kind: u8) -> Self {
 		Self {
-			shape,
 			col,
 			kind,
 		}
