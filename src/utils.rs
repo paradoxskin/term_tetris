@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 use termion::color::{Fg, Rgb, Reset};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 #[derive(Clone, Copy)]
 pub struct Node {
@@ -64,7 +64,7 @@ impl Block {
 		Block::COLOR[self.kind as usize]
 	}
 
-	pub fn down(&mut self, map: Arc<Mutex<Vec<Vec<Node>>>>) -> bool {
+	pub fn down(&mut self, map: &Mutex<Vec<Vec<Node>>>) -> bool {
 		let is_crash = self.is_crash(&map);
 		if !is_crash {
 			self.pos.0 += 1;

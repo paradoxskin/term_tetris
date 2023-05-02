@@ -1,20 +1,22 @@
 use crate::utils::{Block, Node};
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use std::sync::Arc;
 use std::sync::RwLock;
 use std::{time, thread};
 use rand::random;
 use termion::{cursor, clear, raw::{IntoRawMode,RawTerminal}, event::Key, input::TermRead};
-use std::io::{Write, stdout, Stdout, stdin};
+use termion::async_stdin;
+use termion::AsyncReader;
+use termion::input::Keys;
+use std::io::{Write, stdout, Stdout};
+use time::Duration;
 
 pub struct Game {
-	map: Arc<Mutex<Vec<Vec<Node>>>>,
-	now_block: Arc<Mutex<Block>>,
-	//hold_block
+	map: Mutex<Vec<Vec<Node>>>,
+	now_block: Mutex<Block>,
 	packs: Mutex<VecDeque<u8>>,
 	score: Mutex<i32>,
-	end_flag: Arc<RwLock<u8>>,
+	end_flag: RwLock<u8>,
 }
 
 impl Game {
@@ -24,13 +26,13 @@ impl Game {
 
 	pub fn init() -> Self {
 		let score = Mutex::new(0 as i32);
-		let map = Arc::new(Mutex::new(
-					vec![vec![Node::init((255, 255, 255), 0); 10]; 20]));
-		let now_block = Arc::new(Mutex::new(
-					Block::init(1, (1, 4), 4)));
+		let map = Mutex::new(
+					vec![vec![Node::init((255, 255, 255), 0); 10]; 20]);
+		let now_block = Mutex::new(
+					Block::init(1, (1, 4), 4));
 		let packs = Mutex::new(
 					VecDeque::<u8>::new());
-		let end_flag = Arc::new(RwLock::new(0_u8));
+		let end_flag = RwLock::new(0_u8);
 		Self {
 			map,
 			score,
@@ -48,7 +50,7 @@ impl Game {
 		}
 		print!("{}", cursor::Hide);
 		let mut stdout = stdout().into_raw_mode().unwrap();
-		let listen_key = self.listen_key();
+		let mut stdin = async_stdin().keys();
 		loop {
 			{
 				if *(self.end_flag.read().unwrap()) == 1 {
@@ -56,6 +58,7 @@ impl Game {
 				}
 			}
 			let begin = time::Instant::now();
+			self.listen_key(&mut stdin);
 			self.update();
 			self.draw(&mut stdout);
 			let end = time::Instant::now();
@@ -63,53 +66,52 @@ impl Game {
 			thread::sleep(
 					 wait - end.duration_since(begin));
 		}
-		listen_key.join().unwrap();
 		print!("{}", cursor::Show);
 	}
 
-	fn listen_key(&self) -> thread::JoinHandle<()>{
-		let end_flag = self.end_flag.clone();
-		let stdin = stdin();
-		let now_block_mutex = self.now_block.clone();
-		let map_mutex = self.map.clone();
-		return thread::spawn(move || {
-			for key in stdin.keys() {
-				match key.unwrap() {
-					Key::Ctrl('c') => {
-						let mut x = end_flag.write().unwrap();
-						*x = 1;
-						return;
-					}
-					Key::Char('n') => {
-						let mut now_block = now_block_mutex.lock().unwrap();
-						now_block.rotate();
-					}
-					Key::Char('m') => {
-						let mut now_block = now_block_mutex.lock().unwrap();
-						now_block.invrot();
-					}
-					Key::Char('a') => {
-						let mut now_block = now_block_mutex.lock().unwrap();
-						now_block.left();
-					}
-					Key::Char('d') => {
-						let mut now_block = now_block_mutex.lock().unwrap();
-						now_block.right();
-					}
-					Key::Char('s') => {
-						let mut now_block = now_block_mutex.lock().unwrap();
-						if now_block.down(map_mutex.clone()) {
-							let mut now_block = now_block_mutex.lock().unwrap();
-							//now_block.next(1);
-						}
-					}
-					_ => {}
+	fn listen_key(&self, stdin: &mut Keys<AsyncReader>) {
+		if let Some(key) = stdin.next() {
+			match key {
+				Ok(Key::Ctrl('c')) => {
+					let mut x = self.end_flag.write().unwrap();
+					*x = 1;
+					return;
 				}
+				Ok(Key::Char('n')) => {
+					let mut now_block = self.now_block.lock().unwrap();
+					now_block.rotate();
+				}
+				Ok(Key::Char('m')) => {
+					let mut now_block = self.now_block.lock().unwrap();
+					now_block.invrot();
+				}
+				Ok(Key::Char('a')) => {
+					let mut now_block = self.now_block.lock().unwrap();
+					now_block.left();
+				}
+				Ok(Key::Char('d')) => {
+					let mut now_block = self.now_block.lock().unwrap();
+					now_block.right();
+				}
+				Ok(Key::Char('s')) => {
+					let mut now_block = self.now_block.lock().unwrap();
+					if now_block.down(&self.map) {
+						now_block.next(self.pick_next_block());
+					}
+				}
+				Err(e) => {
+					eprintln!("error: {}", e);
+				}
+				_ => {}
 			}
-		});
+		}
+		else {
+			//println!("not pressed");
+		}
 	}
 
 	fn update(&self){
+		//self.listen_key();
 	}
 
 	// TODO just draw what changed can better
