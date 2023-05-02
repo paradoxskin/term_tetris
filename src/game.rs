@@ -9,7 +9,7 @@ use termion::{cursor, clear, raw::{IntoRawMode,RawTerminal}, event::Key, input::
 use std::io::{Write, stdout, Stdout, stdin};
 
 pub struct Game {
-	map: Mutex<Vec<Vec<Node>>>,
+	map: Arc<Mutex<Vec<Vec<Node>>>>,
 	now_block: Arc<Mutex<Block>>,
 	//hold_block
 	packs: Mutex<VecDeque<u8>>,
@@ -24,8 +24,8 @@ impl Game {
 
 	pub fn init() -> Self {
 		let score = Mutex::new(0 as i32);
-		let map = Mutex::new(
-					vec![vec![Node::init((255, 255, 255), 0); 10]; 20]);
+		let map = Arc::new(Mutex::new(
+					vec![vec![Node::init((255, 255, 255), 0); 10]; 20]));
 		let now_block = Arc::new(Mutex::new(
 					Block::init(1, (1, 4), 4)));
 		let packs = Mutex::new(
@@ -71,6 +71,7 @@ impl Game {
 		let end_flag = self.end_flag.clone();
 		let stdin = stdin();
 		let now_block_mutex = self.now_block.clone();
+		let map_mutex = self.map.clone();
 		return thread::spawn(move || {
 			for key in stdin.keys() {
 				match key.unwrap() {
@@ -83,6 +84,10 @@ impl Game {
 						let mut now_block = now_block_mutex.lock().unwrap();
 						now_block.rotate();
 					}
+					Key::Char('m') => {
+						let mut now_block = now_block_mutex.lock().unwrap();
+						now_block.invrot();
+					}
 					Key::Char('a') => {
 						let mut now_block = now_block_mutex.lock().unwrap();
 						now_block.left();
@@ -93,7 +98,10 @@ impl Game {
 					}
 					Key::Char('s') => {
 						let mut now_block = now_block_mutex.lock().unwrap();
-						now_block.down();
+						if now_block.down(map_mutex.clone()) {
+							let mut now_block = now_block_mutex.lock().unwrap();
+							//now_block.next(1);
+						}
 					}
 					_ => {}
 				}
@@ -106,17 +114,18 @@ impl Game {
 
 	// TODO just draw what changed can better
 	fn draw(&self, stdout: &mut RawTerminal<Stdout>) {
-		print!("{}{}", clear::All, cursor::Goto(1, 1));
+		write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
 		let map = self.map.lock().unwrap();
 		for i in map.iter() {
-			print!("<!");
+			write!(stdout, "<!").unwrap();
 			for j in i {
-				print!("{}", j);
+				write!(stdout, "{}", j).unwrap();
 			}
-			println!("!>\r");
+			write!(stdout, "!>\r\n").unwrap();
 		}
-		println!("<!====================!>\r");
-		println!("  \\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\r");
+		write!(stdout, "<!====================!>\r\n").unwrap();
+		write!(stdout, "  \\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\r\n").unwrap();
+		// block
 		let now_block = self.now_block.lock().unwrap();
 		let pos = now_block.get_pos();
 		let shape = now_block.get_shape();
@@ -124,11 +133,22 @@ impl Game {
 		for y in 0..4_usize {
 			for x in 0..4_usize {
 				if shape[4 * y + x] == 1 {
-					//print!("{}1", cursor::Goto(1, 1));
-					print!("{}{}{}", cursor::Goto(1 + ((pos.1 + x as u8)* 2) as u16, (pos.0 + y as u8) as u16), Node::init(col, 1), cursor::Goto(1, 37));
+					write!(stdout,
+							"{}{}",
+							cursor::Goto(3 + ((pos.1 + x as i8)* 2) as u16,
+							(1 + pos.0 + y as i8) as u16),
+							Node::init(col, 1),
+						  ).unwrap();
 				}
 			}
 		}
+		write!(stdout, "{}| score: {} {} |", cursor::Goto(28, 3), pos.0, now_block.debug()).unwrap();
+		{
+			let score = self.score.lock().unwrap();
+			write!(stdout, "{}| score: {} |", cursor::Goto(28, 2), *score).unwrap();
+		}
+
+		write!(stdout, "{}", cursor::Goto(1, 233)).unwrap();
 		stdout.flush().unwrap();
 	}
 

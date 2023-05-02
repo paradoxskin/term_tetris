@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 use termion::color::{Fg, Rgb, Reset};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Copy)]
 pub struct Node {
@@ -32,12 +33,12 @@ impl Node {
 /// {kind, pos, now_shape} all about u8
 pub struct Block {
 	kind: u8,
-	pos: (u8, u8),
+	pos: (i8, i8),
 	now_shape: u8,
 }
 
 impl Block {
-	pub fn init(kind: u8, pos: (u8, u8), now_shape: u8) -> Self {
+	pub fn init(kind: u8, pos: (i8, i8), now_shape: u8) -> Self {
 		Self {
 			kind,
 			pos,
@@ -48,10 +49,10 @@ impl Block {
 	pub fn next(&mut self, kind: u8) {
 		self.kind = kind;
 		self.now_shape = 0;
-		self.pos = (1, 4);
+		self.pos = (0, 3);
 	}
 
-	pub fn get_pos(&self) -> (u8, u8) {
+	pub fn get_pos(&self) -> (i8, i8) {
 		self.pos
 	}
 
@@ -63,27 +64,117 @@ impl Block {
 		Block::COLOR[self.kind as usize]
 	}
 
-	pub fn down(&mut self) {
-		self.pos.0 += 1;
+	pub fn down(&mut self, map: Arc<Mutex<Vec<Vec<Node>>>>) -> bool {
+		let is_crash = self.is_crash(&map);
+		if !is_crash {
+			self.pos.0 += 1;
+		}
+		is_crash
 	}
 
 	pub fn quick_down(&mut self) {
 	}
 
+	pub fn is_crash(&self, map: &Mutex<Vec<Vec<Node>>>) -> bool{
+		let shape = self.get_shape();
+		let map = map.lock().unwrap();
+		for x in 0..4_usize {
+			for y in (0..4_usize).rev() {
+				if shape[4 * y + x] == 1 {
+					if (self.pos.0 as usize + y + 1 == 20) || (map[self.pos.0 as usize + y + 1][self.pos.1 as usize + x].kind == 1) {
+						return true;
+					}
+					break;
+				}
+			}
+		}
+		return false;
+	}
+
+	pub fn debug(&self) -> usize {
+		let shape = self.get_shape();
+		for x in 0..4_usize {
+			for y in (0..4_usize).rev() {
+				if shape[4 * y + x] == 1 {
+					return self.pos.0 as usize + y + 1;
+				}
+			}
+		}
+		return 0;
+	}
+
 	pub fn right(&mut self) {
-		self.pos.1 += 1;
+		if self.pos.1 + self.get_right() < 9 {
+			self.pos.1 += 1;
+		}
 	}
 
 	pub fn left(&mut self) {
-		self.pos.1 -= 1;
+		if self.pos.1 + self.get_left() > 0 {
+			self.pos.1 -= 1;
+		}
+	}
+
+	fn get_left(&self) -> i8 {
+		let now = self.get_shape();
+		for x in 0..4_usize {
+			for y in 0..4_usize {
+				if now[4 * y + x] == 1 {
+					return x as i8;
+				}
+			}
+		}
+		return 0_i8;
+	}
+
+	fn get_right(&self) -> i8 {
+		let now = self.get_shape();
+		for x in (0..4_usize).rev() {
+			for y in 0..4_usize {
+				if now[4 * y + x] == 1 {
+					return x as i8;
+				}
+			}
+		}
+		return 0_i8;
+	}
+
+	fn get_down(&self) -> i8 {
+		let now = self.get_shape();
+		for y in (0..4_usize).rev() {
+			for x in 0..4_usize {
+				if now[4 * y + x] == 1 {
+					return y as i8;
+				}
+			}
+		}
+		return 0_i8;
 	}
 
 	pub fn rotate(&mut self) {
 		self.now_shape = (self.now_shape + 1) % 4;
+		while self.get_left() + self.pos.1 < 0 {
+			self.pos.1 += 1;
+		}
+		while self.get_right() + self.pos.1 > 9 {
+			self.pos.1 -= 1;
+		}
+		while self.get_down() + self.pos.0 > 19 {
+			self.pos.0 -= 1;
+		}
 	}
 
 	pub fn invrot(&mut self) {
-		self.now_shape = (self.now_shape - 1) % 4;
+		self.now_shape = (4 + self.now_shape - 1) % 4;
+		while self.get_left() + self.pos.1 < 0 {
+			self.pos.1 += 1;
+		}
+		while self.get_right() + self.pos.1 > 9 {
+			self.pos.1 -= 1;
+		}
+		while self.get_down() + self.pos.0 > 19 {
+			self.pos.0 -= 1;
+		}
 	}
 
 	const COLOR: [(u8, u8, u8); 8] = [
@@ -182,24 +273,24 @@ impl Block {
 			 0, 0, 0, 0]
 		],
 		[ // O: 4
-			[0, 0, 0, 0,
+			[0, 1, 1, 0,
 			 0, 1, 1, 0,
-			 0, 1, 1, 0,
+			 0, 0, 0, 0,
 			 0, 0, 0, 0],
 
-			[0, 0, 0, 0,
+			[0, 1, 1, 0,
 			 0, 1, 1, 0,
-			 0, 1, 1, 0,
+			 0, 0, 0, 0,
 			 0, 0, 0, 0],
 
-			[0, 0, 0, 0,
+			[0, 1, 1, 0,
 			 0, 1, 1, 0,
-			 0, 1, 1, 0,
+			 0, 0, 0, 0,
 			 0, 0, 0, 0],
 
-			[0, 0, 0, 0,
+			[0, 1, 1, 0,
 			 0, 1, 1, 0,
-			 0, 1, 1, 0,
+			 0, 0, 0, 0,
 			 0, 0, 0, 0]
 		],
 		[ // S: 5
