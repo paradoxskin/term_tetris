@@ -9,7 +9,6 @@ use termion::async_stdin;
 use termion::AsyncReader;
 use termion::input::Keys;
 use std::io::{Write, stdout, Stdout};
-use time::Duration;
 
 pub struct Game {
 	map: Mutex<Vec<Vec<Node>>>,
@@ -77,13 +76,13 @@ impl Game {
 					*x = 1;
 					return;
 				}
-				Key::Char('n') => {
-					let mut now_block = self.now_block.lock().unwrap();
-					now_block.rotate();
-				}
 				Key::Char('m') => {
 					let mut now_block = self.now_block.lock().unwrap();
-					now_block.invrot();
+					now_block.rotate(&self.map);
+				}
+				Key::Char('n') => {
+					let mut now_block = self.now_block.lock().unwrap();
+					now_block.invrot(&self.map);
 				}
 				Key::Char('a') => {
 					let mut now_block = self.now_block.lock().unwrap();
@@ -108,12 +107,10 @@ impl Game {
 			}
 		}
 		else {
-			//println!("not pressed");
 		}
 	}
 
 	fn update(&self){
-		//self.listen_key();
 	}
 
 	// TODO just draw what changed can better

@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 use termion::color::{Fg, Rgb, Reset};
+use termion::style;
 use std::sync::Mutex;
 
 #[derive(Clone, Copy)]
@@ -10,9 +11,9 @@ pub struct Node {
 impl Display for Node {
 	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
 		if self.kind == 0 {
-			return write!(f, "{} .{}", Fg(Rgb(self.col.0, self.col.1, self.col.2)), Fg(Reset));
+			return write!(f, "{}{} .{}{}", Fg(Rgb(self.col.0, self.col.1, self.col.2)), style::Italic, style::Reset, Fg(Reset));
 		}
-		return write!(f, "{}[]{}", Fg(Rgb(self.col.0, self.col.1, self.col.2)), Fg(Reset));
+		return write!(f, "{}{}[]{}{}", Fg(Rgb(self.col.0, self.col.1, self.col.2)), style::Bold, style::Reset, Fg(Reset));
 	}
 }
 
@@ -201,7 +202,37 @@ impl Block {
 		return 0_i8;
 	}
 
-	pub fn rotate(&mut self) {
+	pub fn rotate(&mut self, map: &Mutex<Vec<Vec<Node>>>) {
+		let next_shape = (self.now_shape + 1) % 4;
+		let shape = Self::TYPES[self.kind as usize][next_shape as usize];
+		let map = map.lock().unwrap();
+		let mut next_pos = self.pos;
+		for y in 0..4_usize {
+			for x in 0..4_usize {
+				if shape[4 * y + x] == 1 {
+					while (next_pos.1 + x as i8) < 0 {
+						next_pos.1 += 1;
+					}
+					while (next_pos.1 + x as i8) > 9 {
+						next_pos.1 -= 1;
+					}
+					while (next_pos.0 + y as i8) > 19 {
+						next_pos.0 -= 1;
+					}
+				}
+			}
+		}
+		for y in 0..4_usize {
+			for x in 0..4_usize {
+				if shape[4 * y + x] == 1 {
+					let next_x = next_pos.1 + x as i8;
+					let next_y = next_pos.0 + y as i8;
+					if map[next_y as usize][next_x as usize].kind == 1 {
+						return;
+					}
+				}
+			}
+		}
 		self.now_shape = (self.now_shape + 1) % 4;
 		while self.get_left() + self.pos.1 < 0 {
 			self.pos.1 += 1;
@@ -214,7 +245,37 @@ impl Block {
 		}
 	}
 
-	pub fn invrot(&mut self) {
+	pub fn invrot(&mut self, map: &Mutex<Vec<Vec<Node>>>) {
+		let next_shape = (self.now_shape + 3) % 4;
+		let shape = Self::TYPES[self.kind as usize][next_shape as usize];
+		let map = map.lock().unwrap();
+		let mut next_pos = self.pos;
+		for y in 0..4_usize {
+			for x in 0..4_usize {
+				if shape[4 * y + x] == 1 {
+					while (next_pos.1 + x as i8) < 0 {
+						next_pos.1 += 1;
+					}
+					while (next_pos.1 + x as i8) > 9 {
+						next_pos.1 -= 1;
+					}
+					while (next_pos.0 + y as i8) > 19 {
+						next_pos.0 -= 1;
+					}
+				}
+			}
+		}
+		for y in 0..4_usize {
+			for x in 0..4_usize {
+				if shape[4 * y + x] == 1 {
+					let next_x = next_pos.1 + x as i8;
+					let next_y = next_pos.0 + y as i8;
+					if map[next_y as usize][next_x as usize].kind == 1 {
+						return;
+					}
+				}
+			}
+		}
 		self.now_shape = (4 + self.now_shape - 1) % 4;
 		while self.get_left() + self.pos.1 < 0 {
 			self.pos.1 += 1;
