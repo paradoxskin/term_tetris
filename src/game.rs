@@ -96,12 +96,14 @@ impl Game {
 					let mut now_block = self.now_block.lock().unwrap();
 					if now_block.down(&self.map) {
 						now_block.next(self.pick_next_block());
+						self.check();
 					}
 				}
 				Key::Char('w') => {
 					let mut now_block = self.now_block.lock().unwrap();
 					now_block.quick_down(&self.map);
 					now_block.next(self.pick_next_block());
+					self.check();
 				}
 				_ => {}
 			}
@@ -143,7 +145,6 @@ impl Game {
 				}
 			}
 		}
-		write!(stdout, "{}| score: {} {} |", cursor::Goto(28, 3), pos.0, now_block.debug()).unwrap();
 		{
 			let score = self.score.lock().unwrap();
 			write!(stdout, "{}| score: {} |", cursor::Goto(28, 2), *score).unwrap();
@@ -151,6 +152,29 @@ impl Game {
 
 		write!(stdout, "{}", cursor::Goto(1, 233)).unwrap();
 		stdout.flush().unwrap();
+	}
+
+	fn check(&self) {
+		let mut map = self.map.lock().unwrap();
+		for i in 0..20_usize {
+			for j in 0..10_usize {
+				if map[i][j].kind == 0 {
+					break;
+				}
+				if j == 9 {
+					for k in (1..i + 1_usize).rev() {
+						for z in 0..10_usize {
+							map[k][z] = map[k - 1][z];
+						}
+					}
+					for z in 0..10_usize {
+						map[0][z].change((255, 255, 255), 0);
+					}
+					let mut score = self.score.lock().unwrap();
+					*score += 1;
+				}
+			}
+		}
 	}
 
 	fn create_packs(&self) {

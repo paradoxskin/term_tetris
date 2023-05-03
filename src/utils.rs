@@ -6,7 +6,7 @@ use std::sync::Mutex;
 #[derive(Clone, Copy)]
 pub struct Node {
 	col: (u8, u8, u8),
-	kind: u8,
+	pub kind: u8,
 }
 impl Display for Node {
 	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
