@@ -71,36 +71,38 @@ impl Game {
 
 	fn listen_key(&self, stdin: &mut Keys<AsyncReader>) {
 		if let Some(key) = stdin.next() {
-			match key {
-				Ok(Key::Ctrl('c')) => {
+			match key.unwrap() {
+				Key::Ctrl('c') => {
 					let mut x = self.end_flag.write().unwrap();
 					*x = 1;
 					return;
 				}
-				Ok(Key::Char('n')) => {
+				Key::Char('n') => {
 					let mut now_block = self.now_block.lock().unwrap();
 					now_block.rotate();
 				}
-				Ok(Key::Char('m')) => {
+				Key::Char('m') => {
 					let mut now_block = self.now_block.lock().unwrap();
 					now_block.invrot();
 				}
-				Ok(Key::Char('a')) => {
+				Key::Char('a') => {
 					let mut now_block = self.now_block.lock().unwrap();
-					now_block.left();
+					now_block.left(&self.map);
 				}
-				Ok(Key::Char('d')) => {
+				Key::Char('d') => {
 					let mut now_block = self.now_block.lock().unwrap();
-					now_block.right();
+					now_block.right(&self.map);
 				}
-				Ok(Key::Char('s')) => {
+				Key::Char('s') => {
 					let mut now_block = self.now_block.lock().unwrap();
 					if now_block.down(&self.map) {
 						now_block.next(self.pick_next_block());
 					}
 				}
-				Err(e) => {
-					eprintln!("error: {}", e);
+				Key::Char('w') => {
+					let mut now_block = self.now_block.lock().unwrap();
+					now_block.quick_down(&self.map);
+					now_block.next(self.pick_next_block());
 				}
 				_ => {}
 			}

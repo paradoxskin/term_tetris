@@ -69,10 +69,27 @@ impl Block {
 		if !is_crash {
 			self.pos.0 += 1;
 		}
+		else {
+			self.stop(map);
+		}
 		is_crash
 	}
 
-	pub fn quick_down(&mut self) {
+	fn stop(&self, map: &Mutex<Vec<Vec<Node>>>) {
+		let shape = self.get_shape();
+		let mut map = map.lock().unwrap();
+		let col = self.get_color();
+		for x in 0..4_usize {
+			for y in (0..4_usize).rev() {
+				if shape[4 * y + x] == 1 {
+					map[self.pos.0 as usize + y][(self.pos.1 + x as i8) as usize].change(col, 1);
+				}
+			}
+		}
+	}
+
+	pub fn quick_down(&mut self, map: &Mutex<Vec<Vec<Node>>>) {
+		while !self.down(map) {}
 	}
 
 	pub fn is_crash(&self, map: &Mutex<Vec<Vec<Node>>>) -> bool{
@@ -81,7 +98,8 @@ impl Block {
 		for x in 0..4_usize {
 			for y in (0..4_usize).rev() {
 				if shape[4 * y + x] == 1 {
-					if (self.pos.0 as usize + y + 1 == 20) || (map[self.pos.0 as usize + y + 1][self.pos.1 as usize + x].kind == 1) {
+					// -1 as usize happens overflow
+					if (self.pos.0 as usize + y + 1 == 20) || (map[self.pos.0 as usize + y + 1][(self.pos.1 + x as i8) as usize].kind == 1) {
 						return true;
 					}
 					break;
@@ -93,24 +111,56 @@ impl Block {
 
 	pub fn debug(&self) -> usize {
 		let shape = self.get_shape();
-		for x in 0..4_usize {
-			for y in (0..4_usize).rev() {
+		for y in 0..4_usize {
+			for x in (0..4_usize).rev() {
 				if shape[4 * y + x] == 1 {
-					return self.pos.0 as usize + y + 1;
+					return (self.pos.1 + x as i8 + 1) as usize;
 				}
 			}
 		}
 		return 0;
 	}
 
-	pub fn right(&mut self) {
-		if self.pos.1 + self.get_right() < 9 {
+	fn is_crash_right(&self, map: &Mutex<Vec<Vec<Node>>>) -> bool {
+		let shape = self.get_shape();
+		let map = map.lock().unwrap();
+		for y in 0..4_usize {
+			for x in (0..4_usize).rev() {
+				if shape[4 * y + x] == 1 {
+					if map[self.pos.0 as usize + y][(self.pos.1 + x as i8 + 1) as usize].kind == 1 {
+						return true;
+					}
+					break;
+				}
+			}
+		}
+		return false;
+	}
+
+	fn is_crash_left(&self, map: &Mutex<Vec<Vec<Node>>>) -> bool {
+		let shape = self.get_shape();
+		let map = map.lock().unwrap();
+		for y in 0..4_usize {
+			for x in 0..4_usize {
+				if shape[4 * y + x] == 1 {
+					if map[self.pos.0 as usize + y][(self.pos.1 + x as i8 - 1) as usize].kind == 1 {
+						return true;
+					}
+					break;
+				}
+			}
+		}
+		return false;
+	}
+
+	pub fn right(&mut self, map: &Mutex<Vec<Vec<Node>>>) {
+		if self.pos.1 + self.get_right() < 9 && !self.is_crash_right(map) {
 			self.pos.1 += 1;
 		}
 	}
 
-	pub fn left(&mut self) {
-		if self.pos.1 + self.get_left() > 0 {
+	pub fn left(&mut self, map: &Mutex<Vec<Vec<Node>>>) {
+		if self.pos.1 + self.get_left() > 0 && !self.is_crash_left(map) {
 			self.pos.1 -= 1;
 		}
 	}
